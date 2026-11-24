@@ -1,221 +1,181 @@
-# Multi-Agent Scientific Research Framework
+# Multi-Agent Software Development Engineering Framework
 
-A multi-agent system prompt suite for autonomous scientific research operating through **Paseo**. The framework coordinates six persistent specialist agents around a canonical research state to produce rigorous theoretical results, independently verified research software, and reproducible empirical evidence.
+A multi-agent system prompt suite for collaborative software engineering operating through **Paseo**. The framework coordinates three specialized agents around a canonical project state to deliver well-architected, independently tested, and peer-reviewed software.
 
 ---
 
 ## 1. Team Ownership Model
 
-Role boundaries are defined by **ownership and scientific purpose** rather than tool restrictions. Multiple agents may read code, write code, run commands, or inspect data, but each domain of validity has a single owner:
+Role boundaries are defined by **ownership and engineering purpose** rather than tool restrictions. Multiple agents may read code, write code, or run commands, but each quality dimension has a single owner:
 
-| Role | Prompt File | Core Ownership | Communication Scope |
-| :--- | :--- | :--- | :--- |
-| 🎯 **Anchor** | [`prompts/anchor.md`](prompts/anchor.md) | Idea evaluation & sparring (Co-PI), research direction, prioritization, coordination, evidence integration, and global research state | Spars on research ideas & escalates major decisions with Human; coordinates `Clarifier`, `Mathematician`, `Research Engineer`, and `Programmer-Develop` |
-| 🧭 **Clarifier** | [`prompts/clarifier.md`](prompts/clarifier.md) | Conceptual understanding, top-down architecture explanation, and mental models | Explains system to Human; consults `Anchor`, `Mathematician`, `Research Engineer`, and `Programmer-Develop` |
-| 📐 **Mathematician** | [`prompts/mathematician.md`](prompts/mathematician.md) | Theoretical validity (formalization, derivations, proofs, bounds, counterexamples) | Direct loops with `Anchor`, `Research Engineer`, and `Programmer-Develop` |
-| 🔬 **Research Engineer** | [`prompts/research-engineer.md`](prompts/research-engineer.md) | Empirical validity (experiment design, hypothesis testing, ablations, sweeps, statistical analysis) | Direct loops with `Anchor`, `Mathematician`, and `Programmer-Develop` |
-| ⚙️ **Programmer-Develop** | [`prompts/programmer-develop.md`](prompts/programmer-develop.md) | Implementation correctness, engineering quality, and **sole external interface of the engineering subsystem** | Direct loops with `Anchor`, `Research Engineer`, `Mathematician`, and `Programmer-Test` |
-| 🛡️ **Programmer-Test** | [`prompts/programmer-test.md`](prompts/programmer-test.md) | Independent implementation verification (unit/integration tests, invariants, numerical stability, edge/failure cases) | **Communicates exclusively with `Programmer-Develop`** (`HANDOFF_TO_TEST` / `BUG_REPORT` / `REPORT`) |
+| Role | Prompt File | Model (`team.yaml`) | Core Ownership | Communication Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| 🎯 **Anchor** | [`prompts/anchor.md`](prompts/anchor.md) | `antigravity-cli` / `gemini-pro-orchestrator` (Orchestrator Carbon) | Requirements & design alignment, architecture, task breakdown, prioritization, **code review & merge approval**, canonical project state | Aligns with Human; delegates `TASK`s to `Developer` and `Tester`; reviews `Developer` `REVIEW_REQUEST`s; resolves spec/bug disputes |
+| ⚙️ **Developer** | [`prompts/developer.md`](prompts/developer.md) | `codex` / `gpt-6.1-sol` | Implementation correctness, code quality, refactoring, debugging, build & dependency management | Receives `TASK` & `CODE_REVIEW` from `Anchor`; runs verification loop with `Tester` (`HANDOFF_TO_TEST` / `BUG_REPORT`); submits `REVIEW_REQUEST` to `Anchor` |
+| 🛡️ **Tester** | [`prompts/tester.md`](prompts/tester.md) | `pi` / `deepseek/deepseek-flash` | Independent verification (test plans, unit/integration/e2e suites, edge/failure cases, regression tests, bug isolation) | Receives spec `TASK` & clarifies acceptance criteria with `Anchor`; verifies `Developer` handoffs (`BUG_REPORT` / `REPORT`, cc `Anchor` on final `REPORT`) |
 
-Shared team-wide norms, message types, and scientific integrity rules are defined in [`prompts/research-team-common.md`](prompts/research-team-common.md).
+Shared team-wide norms, quality gates, and message semantics are defined in [`prompts/sde-team-common.md`](prompts/sde-team-common.md).
 
 ---
 
-## 2. Architecture & Agent Relationships
+## 2. Architecture & Agent Workflow
 
-### 2.1 System Ownership & Delegation Topology
+### 2.1 System Ownership & Communication Topology
 
-`Anchor` maintains the canonical [`research/RESEARCH_STATE.md`](research/RESEARCH_STATE.md) and routes high-level tasks according to question ownership. Within the Engineering & Verification Layer, **`Programmer-Develop` acts as the single gateway**: `Programmer-Test` communicates exclusively with `Programmer-Develop` so low-level test iterations never clutter `Anchor` or other specialists.
+**Anchor** maintains the canonical `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md`, breaks work into scoped tasks, and acts as the final code-review gate before merging. **Tester** derives tests from the specification in parallel with **Developer**'s implementation and runs a tight verification loop with **Developer** prior to review.
 
 ```mermaid
 flowchart TD
-    Human(["👤 Human Researcher (Final Authority)"])
-    State[("📚 research/RESEARCH_STATE.md (Canonical Memory)")]
+    Human(["Human Engineer (Final Authority)"])
+    State[("PASEO_TEAM_STATE_DIR/PROJECT_STATE.md (Canonical Project State)")]
 
-    subgraph Coordination["Coordination & Conceptual Layer"]
-        Anchor["🎯 Anchor (Direction, Prioritization & Integration)"]
-        Clarifier["🧭 Clarifier (Conceptual Architecture & Explanation)"]
-    end
+    Anchor["Anchor (Architect, Orchestrator & Code Reviewer)"]
+    Dev["Developer (Implementation & Engineering Quality)"]
+    Test["Tester (Independent Adversarial Verification)"]
 
-    subgraph ScienceLoop["Scientific Validity Layer"]
-        Math["📐 Mathematician (Theoretical Validity)"]
-        RE["🔬 Research Engineer (Empirical Validity)"]
-    end
-
-    subgraph EngineeringLoop["Engineering & Verification Subsystem"]
-        Dev["⚙️ Programmer-Develop (Implementation & Engineering Gateway)"]
-        Test["🛡️ Programmer-Test (Independent Adversarial Verification)"]
-    end
-
-    Human <==>|"Proposes ideas / Co-PI sparring & major decisions"| Anchor
+    Human <==>|"Requirements, architecture & escalations"| Anchor
     Anchor ==>|"Maintains canonical state"| State
-    State -.->|"Consulted before major decisions"| Math
-    State -.->|"Consulted before major decisions"| RE
-    State -.->|"Consulted before major decisions"| Dev
+    State -.->|"Consulted before major work"| Dev
+    State -.->|"Consulted before major work"| Test
 
-    Anchor -->|"Understanding questions"| Clarifier
-    Anchor <-->|"Theory tasks & reports"| Math
-    Anchor <-->|"Empirical tasks & reports"| RE
-    Anchor <-->|"Implementation tasks & verified reports"| Dev
-
-    Clarifier -.->|"Consults theory"| Math
-    Clarifier -.->|"Consults empirical findings"| RE
-    Clarifier -.->|"Consults architecture & verification status"| Dev
-
-    Math <-->|"Predictions / REQUEST_EXPERIMENT / REQUEST_THEORY"| RE
-    Math <-->|"Formal specs & theoretical invariants"| Dev
-    RE <-->|"Experimental hooks, baselines & verified code"| Dev
-    Dev <==>|"Exclusive loop: HANDOFF_TO_TEST / BUG_REPORT / REPORT"| Test
+    Anchor <-->|"TASK / REVIEW_REQUEST / CODE_REVIEW"| Dev
+    Anchor <-->|"Spec TASK / QUESTION / Final REPORT cc"| Test
+    Dev <==>|"Verification loop: HANDOFF_TO_TEST / BUG_REPORT / REPORT"| Test
 
     classDef human fill:#FFE66D,stroke:#D97706,stroke-width:2px,color:#000000
     classDef state fill:#E6E6FA,stroke:#4338CA,stroke-width:2px,color:#1E1B4B
-    classDef coord fill:#F38181,stroke:#991B1B,stroke-width:2px,color:#FFFFFF
-    classDef clarify fill:#A8DADC,stroke:#1D4ED8,stroke-width:2px,color:#0F172A
-    classDef science fill:#4ECDC4,stroke:#0F766E,stroke-width:2px,color:#042F2E
-    classDef eng fill:#95E1D3,stroke:#047857,stroke-width:2px,color:#064E3B
+    classDef anchor fill:#F38181,stroke:#991B1B,stroke-width:2px,color:#FFFFFF
+    classDef dev fill:#95E1D3,stroke:#047857,stroke-width:2px,color:#064E3B
     classDef test fill:#FFD700,stroke:#B45309,stroke-width:2px,color:#000000
 
     class Human human
     class State state
-    class Anchor coord
-    class Clarifier clarify
-    class Math,RE science
-    class Dev eng
+    class Anchor anchor
+    class Dev dev
     class Test test
 ```
 
 ---
 
-### 2.2 Core Scientific Feedback & Verification Loop
+### 2.2 Feature Delivery & Verification Sequence
 
-The team separates **theoretical validity**, **empirical validity**, **implementation**, and **independent software verification**. `Programmer-Test` is paired strictly with `Programmer-Develop` as an internal quality gate before code is delivered to `Research Engineer`:
-
-```mermaid
-flowchart LR
-    Anchor["🎯 Anchor (Research Question & Claim)"]
-    Math["📐 Mathematician (Formal Model & Prediction)"]
-    RE["🔬 Research Engineer (Controlled Experiments & Stats)"]
-    Dev["⚙️ Programmer-Develop (Algorithm & Baseline Code)"]
-    Test["🛡️ Programmer-Test (Adversarial Verification)"]
-
-    Anchor -->|"1. Formulate theoretical question"| Math
-    Math -->|"2a. Testable prediction (REQUEST_EXPERIMENT)"| RE
-    Math -->|"2b. Spec & invariants"| Dev
-    RE -->|"3. Request implementation / hooks"| Dev
-    Dev -->|"4. HANDOFF_TO_TEST"| Test
-    Test -->|"5a. FAIL: BUG_REPORT"| Dev
-    Test -->|"5b. PASS: Verification REPORT"| Dev
-    Dev -->|"6. Deliver verified machinery"| RE
-    RE -->|"7a. Unexpected phenomenon (REQUEST_THEORY)"| Math
-    RE -->|"7b. Empirical evidence (REPORT)"| Anchor
-    Math -->|"7c. Theoretical result (REPORT)"| Anchor
-
-    classDef lead fill:#F38181,stroke:#991B1B,stroke-width:2px,color:#FFFFFF
-    classDef theory fill:#87CEEB,stroke:#0369A1,stroke-width:2px,color:#082F49
-    classDef empirical fill:#4ECDC4,stroke:#0F766E,stroke-width:2px,color:#042F2E
-    classDef impl fill:#90EE90,stroke:#15803D,stroke-width:2px,color:#052E16
-    classDef verify fill:#FFD700,stroke:#B45309,stroke-width:2px,color:#000000
-
-    class Anchor lead
-    class Math theory
-    class RE empirical
-    class Dev impl
-    class Test verify
-```
-
-> **Note:** This diagram represents **ownership boundaries**, not mandatory bureaucracy. Small tasks use the shortest reliable path via direct specialist communication.
-
----
-
-### 2.3 Paseo Semantic Communication Sequence
-
-The sequence below illustrates a full hypothesis-testing cycle where `Programmer-Test` interacts exclusively with `Programmer-Develop`:
+The sequence below illustrates a standard feature or bugfix cycle from specification to merge approval:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as 🎯 Anchor
-    participant M as 📐 Mathematician
-    participant R as 🔬 Research Engineer
-    participant D as ⚙️ Programmer-Develop
-    participant T as 🛡️ Programmer-Test
+    participant H as Human
+    participant A as Anchor
+    participant D as Developer
+    participant T as Tester
 
-    A->>+M: TASK (Derive convergence bound & testable scaling law)
-    M-->>-A: REPORT (Proven bound + empirical regime prediction)
+    H->>+A: Propose feature or change
+    A->>A: Clarify scope, design & acceptance criteria
+    A->>+D: TASK (Requirements, constraints & deliverables)
+    A->>+T: TASK (Same spec & acceptance criteria)
 
-    M->>+R: REQUEST_EXPERIMENT (Test scaling prediction across regimes)
-    R->>+D: Request implementation, baselines & sweep hooks
-    M--)D: Formal specification & theoretical invariants
-
-    D->>+T: HANDOFF_TO_TEST (Code, entry points & invariants to verify)
-
-    alt Invariant or numerical defect detected
-        T-->>D: BUG_REPORT (Minimal reproduction & spec mismatch)
-        D->>T: Fixed implementation (Re-verify)
+    par Implementation & Spec-Driven Test Design
+        D->>D: Implement feature & smoke check
+    and
+        T->>T: Design & draft tests from spec
     end
 
-    T-->>-D: REPORT (Verification Passed: invariants & determinism hold)
-    D-->>-R: Verified implementation & experiment entry points ready
+    D->>T: HANDOFF_TO_TEST (Changes, run commands & interfaces)
 
-    R->>R: Run controlled experiments, ablations & uncertainty analysis
-
-    opt Unexpected boundary regime behavior observed
-        R->>+M: REQUEST_THEORY (Explain phase transition at boundary)
-        M-->>-R: REPORT (Refined assumption & boundary condition)
+    alt Defect or spec mismatch detected
+        T-->>D: BUG_REPORT (Minimal reproduction & evidence)
+        D->>D: Fix root cause
+        D->>T: Re-handoff for verification
     end
 
-    R-->>-A: REPORT (Empirical evidence, robustness & research implication)
-    A->>A: Integrate evidence & update research/RESEARCH_STATE.md
+    T-->>-D: REPORT (Verification Passed, cc Anchor)
+    D->>A: REVIEW_REQUEST (Summary, diff & test status)
+    A->>A: Inspect diff, review code & tests, run checks
+
+    alt Blocking review comments
+        A-->>D: CODE_REVIEW (Changes Requested)
+        D->>D: Address blocking feedback
+        D->>T: Re-verify if behavior changed
+        D->>A: Updated REVIEW_REQUEST
+    end
+
+    A-->>-D: CODE_REVIEW (Approved)
+    A->>A: Update PASEO_TEAM_STATE_DIR/PROJECT_STATE.md & approve merge
+    A-->>-H: Feature delivered & verified
 ```
 
 ---
 
 ## 3. Semantic Message Protocol
 
-Agents communicate through Paseo using structured message types defined in [`prompts/research-team-common.md`](prompts/research-team-common.md):
+Agents communicate through Paseo using structured message types defined in [`prompts/sde-team-common.md`](prompts/sde-team-common.md):
 
 | Message Type | Typical Sender → Recipient | Purpose |
 | :--- | :--- | :--- |
-| `TASK` | `Anchor` → `Mathematician` / `Research Engineer` / `Programmer-Develop` / `Clarifier` | Assign a concrete research, engineering, or explanation task with deliverable and priority. |
-| `REPORT` | Specialist → `Anchor` / Peer (or `Programmer-Test` → `Programmer-Develop`) | Report substantial theoretical, empirical, implementation, or verification findings. |
-| `QUESTION` | Any Agent → Peer (or `Programmer-Test` → `Programmer-Develop`) | Request clarification on specifications, assumptions, or context. |
-| `CHALLENGE` | Any Agent → Peer | Challenge an assumption, derivation, experimental control, or interpretation. |
-| `REQUEST_THEORY` | `Research Engineer` / `Programmer-Develop` → `Mathematician` | Request theoretical investigation of an unexpected empirical phenomenon or formal ambiguity. |
-| `REQUEST_EXPERIMENT` | `Mathematician` / `Anchor` → `Research Engineer` | Request empirical validation of a theoretical prediction or hypothesis. |
-| `HANDOFF_TO_TEST` | `Programmer-Develop` → `Programmer-Test` | Hand off newly implemented components, entry points, and theoretical invariants for independent verification. |
-| `BUG_REPORT` | `Programmer-Test` → `Programmer-Develop` | Report an isolated implementation defect, broken invariant, or specification mismatch. |
+| `TASK` | `Anchor` → `Developer` / `Tester` | Assign a scoped implementation or verification task with acceptance criteria and priority. |
+| `REPORT` | `Developer` / `Tester` → `Anchor` / `Developer` | Report implementation status, blockers, or verification results (cc `Anchor` on final test reports). |
+| `QUESTION` | Any Agent → `Anchor` / Peer | Request clarification on requirements, specifications, interfaces, or constraints. |
+| `CHALLENGE` | Any Agent → `Anchor` / Peer | Challenge an ambiguous requirement, flawed design assumption, or invalid test expectation. |
+| `HANDOFF_TO_TEST` | `Developer` → `Tester` | Hand off implemented changes, run commands, interfaces, and covered criteria for verification. |
+| `BUG_REPORT` | `Tester` → `Developer` | Report an isolated defect, broken invariant, or spec mismatch with minimal reproduction. |
+| `REVIEW_REQUEST` | `Developer` → `Anchor` | Submit verified changes for code review and merge approval. |
+| `CODE_REVIEW` | `Anchor` → `Developer` | Deliver code and test review verdict (`Approved` / `Changes Requested` / `Rejected`). |
 
 ---
 
-## 4. Repository Structure
+## 4. Persistent Team State (`PASEO_TEAM_STATE_DIR`)
+
+When imported by the **Paseo** plugin, persistent agent communication records and project state are stored outside the product's source tree (for example, under a hidden directory such as `.agents/<team>/`) so framework artifacts never pollute the target repository.
+
+- The Paseo plugin exports the directory path via the **`PASEO_TEAM_STATE_DIR`** environment variable.
+- Agents resolve `PASEO_TEAM_STATE_DIR` at runtime to read and write `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md` (seeded from [`templates/PROJECT_STATE.md`](templates/PROJECT_STATE.md)) and any persisted coordination records.
+- If `PASEO_TEAM_STATE_DIR` is unset or missing, agents stop and escalate rather than creating ad-hoc state files inside the project tree.
+
+---
+
+## 5. Repository Structure
 
 ```text
-Multi-Agent-Framework/
+MA-SDE-Framework/
+├── team.yaml                      # Paseo 3-agent team definition and model configuration
+├── README.md                      # Framework architecture, roles, and usage guide
 ├── prompts/
-│   ├── research-team-common.md   # Shared team protocol, integrity rules & message semantics
-│   ├── anchor.md                 # 🎯 Anchor: research lead & state owner
-│   ├── clarifier.md              # 🧭 Clarifier: conceptual & architectural explainer
-│   ├── mathematician.md          # 📐 Mathematician: theoretical validity specialist
-│   ├── research-engineer.md      # 🔬 Research Engineer: empirical validity & experimentation
-│   ├── programmer-develop.md     # ⚙️ Programmer-Develop: implementation & engineering gateway
-│   └── programmer-test.md        # 🛡️ Programmer-Test: independent verification (reports to Develop)
-├── research/
-│   ├── RESEARCH_STATE.md         # Canonical global research state (maintained by Anchor)
-│   ├── THEORY.md                 # Theoretical formulations, proofs & open derivations
-│   └── EXPERIMENTS.md            # Experimental designs, logs & empirical summaries
-├── experiments/                  # Research codebase, baselines & runnable experiment scripts
-└── results/                      # Raw experimental outputs, checkpoints, plots & statistical artifacts
+│   ├── sde-team-common.md         # Shared team protocol, integrity rules, quality gates & messages
+│   ├── anchor.md                  # Anchor: tech lead, architect, orchestrator & code reviewer
+│   ├── developer.md               # Developer: production implementation & engineering quality
+│   └── tester.md                  # Tester: independent spec-driven verification & testing
+└── templates/
+    └── PROJECT_STATE.md           # Template seeded into $PASEO_TEAM_STATE_DIR by the Paseo plugin
 ```
+
+> **Note:** The framework does not prescribe a source/test layout. Production code and tests follow the target project's existing conventions; for new projects, Anchor defines the layout in `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md`.
 
 ---
 
-## 5. Role-Boundary Litmus Test
+## 6. Definition of Done
 
-When assigning or reviewing work across the multi-agent workflow, apply the six-question ownership test:
+A substantial task is complete only when:
 
-1. **WHO decides what matters?** → `Anchor`
-2. **WHO explains what the system means?** → `Clarifier`
-3. **WHO determines what is theoretically true?** → `Mathematician`
-4. **WHO determines what is empirically supported?** → `Research Engineer`
-5. **WHO builds the implementation and coordinates engineering delivery?** → `Programmer-Develop`
-6. **WHO independently determines whether that implementation is correct (reporting to `Programmer-Develop`)?** → `Programmer-Test`
+1. Agreed requirements and acceptance criteria are satisfied.
+2. **Tester** has issued a verification `REPORT` with status `Passed` (unless explicitly waived by **Anchor** for a trivial change).
+3. **Anchor** has inspected the diff and issued a `CODE_REVIEW` with verdict `Approved`.
+4. Build, linter (if configured), and test suites are green after the final edit.
+5. `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md` is updated with task status, design decisions, and remaining risks.
+
+---
+
+## 7. Role-Boundary Litmus Test
+
+When assigning or reviewing work across the workflow, apply the three-question ownership test:
+
+1. **WHO decides what to build, how it fits together, and whether it is good enough to merge?** → `Anchor`
+2. **WHO builds and maintains the production implementation?** → `Developer`
+3. **WHO independently proves the implementation satisfies its specification (or finds where it breaks)?** → `Tester`
+
+---
+
+## 8. Usage
+
+1. Configure your **Paseo** plugin to import [`team.yaml`](team.yaml) and export `PASEO_TEAM_STATE_DIR` pointing to the persistent team-state directory (e.g., `.agents/<team>/`), seeding [`templates/PROJECT_STATE.md`](templates/PROJECT_STATE.md) as `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md` if not already present.
+2. Load [`team.yaml`](team.yaml) into **Paseo** (`workspace` is automatically replaced with your current workspace name on load), and optionally set `goal` or describe your project objective directly to **Anchor**.
+3. **Anchor** will collaborate with you to refine requirements and architecture in `$PASEO_TEAM_STATE_DIR/PROJECT_STATE.md`, then coordinate **Developer** and **Tester** through implementation, verification, and code review.
